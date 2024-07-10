@@ -1,31 +1,58 @@
 import argparse
-import os
 import json
-import sys
+import os
 import pickle
+import sys
 from PIL import Image
+
+#third party
+import numpy as np
+from tqdm import tqdm
+
 
 FOCAL_LENGTH = 0.6911112070083618
 
+
+def virtual_camera(pixel_width: int, pixel_height:int) -> np.ndarray:
+    origin = np.array([pixel_width/2,pixel_height/2, FOCAL_LENGTH])
+    X, Y = np.meshgrid(np.arange(pixel_width), np.arange(pixel_height))
+    camera_matrix = np.stack((X, Y, np.zeros(X.shape)), axis=2) \
+            - origin.reshape(1,1,3)
+
+    norm = np.linalg.norm(camera_matrix, axis=1, keepdims=True)
+    print(norm)
+    return camera_matrix / norm
+
+
 def create_rays_synthetic_set(folder_path, transforms: dict):
     
-    for frame in transforms["frames"]:
+    data_set = []
+
+    for frame in tqdm(transforms["frames"]):
 
         file = frame["file_path"].split(".")[1]
-        print(file)
-        print(folder_path)
 
         with Image.open(folder_path + file + '.png') as img:
             pix = img.load()
             width = img.width
             height = img.height
 
+            camera = virtual_camera(width, height)
+            rotation_matrix = np.array(frame["transform_matrix"])
+            ray_matrix = np.matmul(camera, rotation_matrix[:3,:3])
+
+
             for y in range(height):
                 for x in range(width):
-                    if all(pix[x,y]):
-                        print(pix[x,y])
-            break
 
+                    sample = {'position': rotation_matrix[:3,3].tolist(),
+                              'direction': ray_matrix[x,y,:].tolist(),
+                              'target':pix[x,y]}
+
+                    data_set.append(sample)
+
+    return data_set
+    
 
 if __name__ == '__main__':
 
@@ -44,7 +71,10 @@ if __name__ == '__main__':
             f"transforms_{args.set_type}.json")) as json_data:
         transforms = json.load(json_data)
         json_data.close()
-        create_rays_synthetic_set(args.datafolder, transforms)
+        data_set = create_rays_synthetic_set(args.datafolder, transforms)
+        with open(f"{args.set_type}.pkl", 'wb') as file:
+            pickle.dump(data_set, file=file)
+
     
 
 
