@@ -79,16 +79,3 @@ if __name__ == '__main__':
             with open(f"{output_dir}/{args.set_type}_{id}.pkl", 'wb') as file:
                 pickle.dump(data_set, file=file)
 
-
-    
-
-
-
-
-
-
-
-
-
-
-
