@@ -74,8 +74,8 @@ if __name__ == '__main__':
         transforms = json.load(json_data)
         json_data.close()
 
-        for id, frame in enumerate(tqdm(transforms["frames"])):
+        for image_id, frame in enumerate(tqdm(transforms["frames"])):
             data_set = create_rays_synthetic_set(args.datafolder, frame)
-            with open(f"{output_dir}/{args.set_type}_{id}.pkl", 'wb') as file:
+            with open(f"{output_dir}/{args.set_type}_{image_id}.pkl", 'wb') as file:
                 pickle.dump(data_set, file=file)
 
