@@ -60,10 +60,14 @@ class NERF(nn.Module):
         emb_pos = fourier_encoding(pos, self.embedding_size_position)
         emb_view = fourier_encoding(view, self.embedding_size_view)
 
+        print(emb_pos.shape)
+
         logits = self.block1(emb_pos)
-        logits = self.block2(torch.concatenate((emb_pos, logits)))
-        density = f.relu(logits[1])
-        color = self.rgb_decoder(torch.concatenate((logits[1:],emb_view)))
+        print(logits.shape)
+        logits = self.block2(torch.concatenate((emb_pos, logits), dim=-1))
+        density = f.relu(logits[:,1])
+        color = self.rgb_decoder(
+                torch.concatenate((logits[:,1:],emb_view), dim=-1))
 
         return density, color
 
@@ -74,8 +78,8 @@ if __name__ == '__main__':
         This is a test function for the above class defintion.
     '''
 
-    pos = torch.rand(3)
-    view = torch.rand(3)
+    pos = torch.rand(1,3)
+    view = torch.rand(1,3)
 
     model = NERF(input_dim_position = 3, input_dim_view = 3, hidden_dim=10,
                  output_dim = 3, embedding_size_poisiton = 10,
