@@ -20,7 +20,9 @@ class SyntheticDataset(Dataset):
                 rays_per_image:
                     number of rays sampled from each image at each 
                 iteration of the dataset. OBS! Increasing this size implicitly 
-                increases the batch size.
+                increases the batch size and is also faster than using the 
+                latter. This size is also bounded by the number of pixels in
+                each image. Rays are randomly sampled within each image.
 
         """
 
@@ -53,6 +55,38 @@ class SyntheticDataset(Dataset):
             view = torch.stack(view).to(self.device)
             tgt = torch.stack(tgt).to(self.device)
 
-            return (pos, view), tgt
+            return pos, view, tgt
+
+    @staticmethod
+    def ray_collate_fn(batch):
+
+        P, V, T = [], [], []
+        for item in batch:
+            pos, view, tgt = item
+            P.append(pos)
+            V.append(view)
+            T.append(tgt)
+            
+        return torch.cat(P), torch.cat(V), torch.cat(T)
+
+
+
+
+if __name__ == '__main__':
+
+    from torch.utils.data import DataLoader
+    from time import time
+
+    t0 = time()
+    data_set = SyntheticDataset("./preprocessed_data", "cpu", rays_per_image=4)
+    test_loader = DataLoader(data_set, batch_size=1, collate_fn=SyntheticDataset.ray_collate_fn)
+
+    for data in test_loader:
+        pos, view, tgt = data
+
+        break
+    t1 = time()
+    print(f"time: {t1-t0}s")
+
                 
 
