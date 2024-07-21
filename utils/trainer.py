@@ -1,10 +1,11 @@
+from importlib import import_module
+
 import torch
 import torch.optim
 import torch.nn
-
-from importlib import import_module
-
+from torch.utils.data import DataLoader
 from tqdm import tqdm
+
 
 class Trainer:
 
@@ -36,9 +37,14 @@ class Trainer:
          self.model = self._build_model().to(self.device)
 
 
-
     def _build_data_loader(self):
-        pass
+        data_set_name = self.build_args["data_set_name"]
+        DataSet = getattr(import_module(self.build_args["data_set_module"]),
+                          data_set_name)
+        data_set = DataSet(**self.build_args["dataset_args"])
+        collate_fn = DataSet.collate_fn
+        return DataLoader(data_set, **self.build_args["data_loader_args"],
+                          collate_fn=collate_fn)
 
 
     def _build_model(self):

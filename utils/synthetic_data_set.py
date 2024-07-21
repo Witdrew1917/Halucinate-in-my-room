@@ -58,7 +58,7 @@ class SyntheticDataset(Dataset):
             return pos, view, tgt
 
     @staticmethod
-    def ray_collate_fn(batch):
+    def collate_fn(batch):
 
         P, V, T = [], [], []
         for item in batch:
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     from time import time
 
     t0 = time()
-    data_set = SyntheticDataset("./preprocessed_data", "cpu", rays_per_image=4)
+    data_set = SyntheticDataset("../preprocessed_data", "cpu", rays_per_image=4)
     test_loader = DataLoader(data_set, batch_size=1, collate_fn=SyntheticDataset.ray_collate_fn)
 
     for data in test_loader:
