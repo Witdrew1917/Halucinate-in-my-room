@@ -10,16 +10,16 @@ if __name__ == '__main__':
 from utils.positional_encodings import fourier_encoding
 
 
-class NERF(nn.Module):
+class Nerf(nn.Module):
 
     def __init__(self, input_dim_position: int, input_dim_view: int,
-                 hidden_dim: int, output_dim: int, embedding_size_poisiton: int,
+                 hidden_dim: int, output_dim: int, embedding_size_position: int,
                  embedding_size_view: int):
 
         super().__init__()
 
         self.block1 = nn.Sequential(
-                nn.Linear(input_dim_position*2*embedding_size_poisiton,
+                nn.Linear(input_dim_position*2*embedding_size_position,
                           hidden_dim),
                 nn.ReLU(),
                 nn.Linear(hidden_dim, hidden_dim),
@@ -32,7 +32,7 @@ class NERF(nn.Module):
 
         self.block2 = nn.Sequential(
                 nn.Linear(
-                    hidden_dim + input_dim_position*2*embedding_size_poisiton,
+                    hidden_dim + input_dim_position*2*embedding_size_position,
                           hidden_dim),
                 nn.ReLU(),
                 nn.Linear(hidden_dim, hidden_dim),
@@ -52,24 +52,25 @@ class NERF(nn.Module):
                 nn.Sigmoid(),
                 )
 
-        self.embedding_size_position = embedding_size_poisiton
+        self.embedding_size_position = embedding_size_position
         self.embedding_size_view = embedding_size_view
 
 
     def forward(self, pos, view):
+
+        # pos and view data are assumed to be of shape (B,R,D) where B is
+        # the batch size, R is the granularity of each ray, and D is a scalar.
         emb_pos = fourier_encoding(pos, self.embedding_size_position)
         emb_view = fourier_encoding(view, self.embedding_size_view)
 
-        print(emb_pos.shape)
 
         logits = self.block1(emb_pos)
-        print(logits.shape)
         logits = self.block2(torch.concatenate((emb_pos, logits), dim=-1))
-        density = f.relu(logits[:,1])
+        density = f.relu(logits[:,:,1])
         color = self.rgb_decoder(
-                torch.concatenate((logits[:,1:],emb_view), dim=-1))
+                torch.concatenate((logits[:,:,1:],emb_view), dim=-1))
 
-        return density, color
+        return density.unsqueeze(-1), color
 
 
 if __name__ == '__main__':
@@ -81,8 +82,8 @@ if __name__ == '__main__':
     pos = torch.rand(1,3)
     view = torch.rand(1,3)
 
-    model = NERF(input_dim_position = 3, input_dim_view = 3, hidden_dim=10,
-                 output_dim = 3, embedding_size_poisiton = 10,
+    model = Nerf(input_dim_position = 3, input_dim_view = 3, hidden_dim=10,
+                 output_dim = 3, embedding_size_position = 10,
                  embedding_size_view = 4)
 
     print(model(pos, view))

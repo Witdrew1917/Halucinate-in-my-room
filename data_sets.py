@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 
 class SyntheticDataset(Dataset):
 
-    def __init__(self, root_folder: str, device: str, rays_per_image=1) -> None:
+    def __init__(self, device: str, root_folder: str, rays_per_image=1) -> None:
         super().__init__()
 
         """
@@ -55,7 +55,7 @@ class SyntheticDataset(Dataset):
             view = torch.stack(view).to(self.device)
             tgt = torch.stack(tgt).to(self.device)
 
-            return pos, view, tgt
+            return pos, view, tgt[:,:3]
 
     @staticmethod
     def collate_fn(batch):
@@ -67,9 +67,7 @@ class SyntheticDataset(Dataset):
             V.append(view)
             T.append(tgt)
             
-        return torch.cat(P), torch.cat(V), torch.cat(T)
-
-
+        return (torch.cat(P), torch.cat(V)), torch.cat(T)
 
 
 if __name__ == '__main__':
@@ -79,7 +77,8 @@ if __name__ == '__main__':
 
     t0 = time()
     data_set = SyntheticDataset("../preprocessed_data", "cpu", rays_per_image=4)
-    test_loader = DataLoader(data_set, batch_size=1, collate_fn=SyntheticDataset.ray_collate_fn)
+    test_loader = DataLoader(data_set, batch_size=1, 
+                             collate_fn=SyntheticDataset.collate_fn)
 
     for data in test_loader:
         pos, view, tgt = data

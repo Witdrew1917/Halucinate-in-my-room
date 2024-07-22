@@ -2,6 +2,7 @@ from importlib import import_module
 
 import torch
 import torch.optim
+import torch.optim.lr_scheduler
 import torch.nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -21,27 +22,30 @@ class Trainer:
 
     def __init__(self, build_args: dict) -> None:
 
+         self.epochs = build_args["epochs"]
          self.build_args = build_args
          self.device = build_args["device"]
 
+         self.model = self._build_model().to(self.device)
          optimizer_fn = getattr(torch.optim, build_args["optimizer"])
-         self.optimizer = optimizer_fn(**build_args["optimizer_args"])
-         scheduler_fn = getattr(torch.optim, build_args["scheduler"])
-         self.scheduler = scheduler_fn(**build_args["scheduler_args"])
+         self.optimizer = optimizer_fn(self.model.parameters(),
+                                       **build_args["optimizer_args"])
+         scheduler_fn = getattr(torch.optim.lr_scheduler,
+                                build_args["scheduler"])
+         self.scheduler = scheduler_fn(self.optimizer, 
+                                       **build_args["scheduler_args"])
 
          self.loss_fn = getattr(torch.nn, build_args["loss_function"])()
-         self.learning_rate = build_args["learning_rate"]
          self.dropout = build_args["dropout"]
 
          self.data_loader = self._build_data_loader()
-         self.model = self._build_model().to(self.device)
+
 
 
     def _build_data_loader(self):
         data_set_name = self.build_args["data_set_name"]
-        DataSet = getattr(import_module(self.build_args["data_set_module"]),
-                          data_set_name)
-        data_set = DataSet(**self.build_args["dataset_args"])
+        DataSet = getattr(import_module("data_sets"), data_set_name)
+        data_set = DataSet(self.device, **self.build_args["data_set_args"])
         collate_fn = DataSet.collate_fn
         return DataLoader(data_set, **self.build_args["data_loader_args"],
                           collate_fn=collate_fn)
@@ -49,12 +53,13 @@ class Trainer:
 
     def _build_model(self):
         model_name = self.build_args["model_name"]
-        Model = getattr(import_module(f"models.{model_name}"), model_name)
+        Model = getattr(import_module(f"models.{model_name}"),
+                        model_name.title())
         return Model(**self.build_args["model_args"])
 
 
     @staticmethod
-    def _call_model(input_data, model):
+    def _call_model(input_data:tuple, model):
         '''
             This boiler plate function only exist such that models may
             override it if needed.
@@ -63,11 +68,12 @@ class Trainer:
         return model(*input_data)
 
 
-    def _train_one_epoch(self) -> float:
+    def _train_one_epoch(self, iterator) -> float:
         # The data loader is assumed to handle device allocation from the
         # implemented pytorch DataSet.
         # Also, assumes that input data is a tuple and labels are torch tensors
         loss_sum = 0
+        desc = iterator.desc
 
         for i, data in enumerate(self.data_loader):
             input_data, label = data
@@ -77,14 +83,18 @@ class Trainer:
             loss.backward()
 
             self.optimizer.step()
-            self.scheduler.step()
 
             loss_sum += loss.item()
+            iterator.set_description(f"Loss: {loss_sum / (i + 1)}")
 
-        return loss_sum / i
+        if self.scheduler:
+            self.scheduler.step()
+
+        return loss_sum / (i + 1)
 
 
-    def run(self, epochs: int):
-        for epoch in tqdm(range(epochs)):
-            log = self._train_one_epoch()
-            print(f"Epoch {epoch}: {log}")
+    def run(self):
+        iterator = tqdm(range(self.epochs), desc="Loss:")
+        for _ in iterator:
+            log = self._train_one_epoch(iterator)
+            print(f"Loss: {log}")
