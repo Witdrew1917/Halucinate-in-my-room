@@ -1,6 +1,6 @@
 import torch
 
-def create_ray(pos: torch.Tensor, view: torch.Tensor, time_len=1,
+def create_ray(pos: torch.Tensor, view: torch.Tensor, time_len=8,
                granularity=0.01):
     time_scale = torch.arange(0,time_len,granularity).unsqueeze(-1)
     pos = pos.unsqueeze(-2) + view.unsqueeze(-2) * time_scale
