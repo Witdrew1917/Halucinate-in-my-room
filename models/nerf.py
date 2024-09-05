@@ -8,6 +8,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.abspath(os.path.curdir))
 
 from utils.positional_encodings import fourier_encoding
+from utils.ray_utils import create_ray, volume_render
 
 
 class Nerf(nn.Module):
@@ -56,7 +57,10 @@ class Nerf(nn.Module):
         self.embedding_size_view = embedding_size_view
 
 
-    def forward(self, pos, view):
+    def forward(self, input_data):
+
+        pos, view = input_data
+        pos, view = create_ray(pos, view)
 
         # pos and view data are assumed to be of shape (B,R,D) where B is
         # the batch size, R is the granularity of each ray, and D is a scalar.
@@ -70,7 +74,8 @@ class Nerf(nn.Module):
         color = self.rgb_decoder(
                 torch.concatenate((logits[:,:,1:],emb_view), dim=-1))
 
-        return density.unsqueeze(-1), color
+        volume = volume_render(color, density.unsqueeze(-1))
+        return volume
 
 
 if __name__ == '__main__':
@@ -86,5 +91,5 @@ if __name__ == '__main__':
                  output_dim = 3, embedding_size_position = 10,
                  embedding_size_view = 4)
 
-    print(model(pos, view))
+    print(model((pos, view)))
     

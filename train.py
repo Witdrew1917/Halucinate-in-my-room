@@ -1,27 +1,18 @@
 import argparse
 import yaml
-import sys
+import os
+from datetime import datetime 
 
 import torch
 from utils.trainer import Trainer
-from utils.ray_utils import create_ray, volume_render
-
-
-def nerf(input_data:tuple ,model):
-
-    pos, view = input_data
-    pos, view = create_ray(pos, view)
-
-    color, density = model(pos, view)
-    volume = volume_render(color, density)
-
-    return volume
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-r','--recipe', type=str, required=True,
                         help="path to recipe file")
+    parser.add_argument('-sav','--save_path', type=str, required=True,
+                        help="path to where to save resulting model")
     args = parser.parse_args()
 
     with open(args.recipe, 'r') as file:
@@ -31,8 +22,13 @@ def main():
 
     build_args = recipe[model_name]
     trainer = Trainer(build_args)
-    trainer._call_model = getattr(sys.modules[__name__], model_name)
+
     trainer.run()
+
+    date = datetime.now().strftime("%Y-%m-%d_%H:%M")
+    save_path = os.path.join(args.save_path,f"{model_name}_{date}.pt")
+    torch.save(trainer.save(), save_path)
+    print(f"Done! Saved model at: {save_path}")
 
 
 if __name__ == '__main__':

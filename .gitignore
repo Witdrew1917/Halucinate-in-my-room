@@ -1,6 +1,7 @@
 # Local ignores
 .gitignore
 data/
+output/
 *.pkl
 
 # Byte-compiled / optimized / DLL files

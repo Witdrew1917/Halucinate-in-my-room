@@ -1,5 +1,5 @@
 nerf:
-  epochs: 10
+  epochs: 100000
   device: 'cpu'
   model_name: 'nerf'
   model_args:
@@ -20,10 +20,26 @@ nerf:
   data_set_name: 'SyntheticDataset'
   data_set_args:
     root_folder: './preprocessed_data'
-    rays_per_image: 128
+    rays_per_image: 4096
   data_loader_args:
     batch_size: 1
     shuffle: True
+  # The following arguments may override some arguments stated above.
+  test_args:
+    image_width: 800
+    image_height: 800
+    # If the number of querried rays are causing memory consumption to be too
+    # high, this value can be increased.
+    chunks: 16 
+    data_set_args:
+      root_folder: './preprocessed_data'
+      # This is set to be exactly the number of pixels in the target image.
+      rays_per_image: 640000        
+      random_rays: False
+    data_loader_args:
+      batch_size: 1
+      shuffle: False
+
 
 
 
