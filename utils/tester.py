@@ -25,6 +25,7 @@ class Tester:
     def __init__(self, build_args: dict) -> None:
 
          self.build_args = build_args
+         self.test_args = build_args["test_args"]
          self.device = build_args["device"]
 
          self.model = self._build_model().to(self.device)
@@ -36,9 +37,9 @@ class Tester:
     def _build_data_loader(self):
         data_set_name = self.build_args["data_set_name"]
         DataSet = getattr(import_module("data_sets"), data_set_name)
-        data_set = DataSet(self.device, **self.build_args["data_set_args"])
+        data_set = DataSet(self.device, **self.test_args["data_set_args"])
         collate_fn = DataSet.collate_fn
-        return DataLoader(data_set, **self.build_args["data_loader_args"],
+        return DataLoader(data_set, **self.test_args["data_loader_args"],
                           collate_fn=collate_fn, )
 
 
@@ -48,7 +49,10 @@ class Tester:
                         model_name.title())
         return Model(**self.build_args["model_args"])
 
-
+    """
+        I think this function kinda breaks my structure, but alas one should
+        not worry to much about that. In the future this might be improvable.
+    """
     def _eval_one_image(self) -> float:
         # The data loader is assumed to handle device allocation from the
         # implemented pytorch DataSet.
@@ -56,19 +60,34 @@ class Tester:
         loss_sum = 0
 
         for i, data in enumerate(self.data_loader):
-            input_data, label = data
+            (input_pos, input_view), label = data
             output = []
+            chunks = self.test_args["chunks"]
             with torch.no_grad():
-                for chunk in self.build_args["test"]["chunks"]:
-                    output += self.model(input_data).tolist()
-            loss = self.loss_fn(output, label)
+                for chunk in tqdm(range(chunks)):
+                    slice = self.test_args["data_set_args"]["rays_per_image"] \
+                            / chunks
+                    start = int(chunk*slice)
+                    end = int((chunk+1)*slice)
+                    output += self.model((input_pos[start:end,:],\
+                            input_view[start:end,:])).tolist()
 
-            loss_sum += loss.item()
-            plt.imshow(np.array(output), interpolation='nearest')
+            image_width = self.test_args["image_width"]
+            image_height = self.test_args["image_height"]
 
+            image_array = np.array(output).reshape(image_height,image_width,3)
+
+            _, ax = plt.subplots(1,2)
+            ax[0].imshow(image_array.astype(int), interpolation='none')
+
+            reference_image_array = \
+                    label.numpy().reshape(image_height, image_width, 3)
+            ax[1].imshow(reference_image_array.astype(int), interpolation='none')
+
+            plt.show()
             break
 
-        return loss_sum / (i + 1)
+        return loss_sum / (i + 1)*chunks
 
 
     def run(self):

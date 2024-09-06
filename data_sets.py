@@ -8,7 +8,8 @@ from torch.utils.data import Dataset
 
 class SyntheticDataset(Dataset):
 
-    def __init__(self, device: str, root_folder: str, rays_per_image=1) -> None:
+    def __init__(self, device: str, root_folder: str, rays_per_image=1, \
+            random_rays=True) -> None:
         super().__init__()
 
         """
@@ -30,6 +31,7 @@ class SyntheticDataset(Dataset):
         self.file_list = os.listdir(root_folder)
         self.rays_per_image = rays_per_image
         self.device = device
+        self.random_rays = random_rays
 
 
     def __len__(self):
@@ -45,8 +47,11 @@ class SyntheticDataset(Dataset):
             view = []
             tgt = []
 
-            for ray in range(self.rays_per_image):
-                i = random.randint(0,len(data_point))
+            for i in range(self.rays_per_image):
+
+                if self.random_rays:
+                    i = random.randint(0,len(data_point))
+
                 pos.append(torch.FloatTensor(data_point[i]["position"]))
                 view.append(torch.FloatTensor(data_point[i]["direction"]))
                 tgt.append(torch.FloatTensor(data_point[i]["target"]))
