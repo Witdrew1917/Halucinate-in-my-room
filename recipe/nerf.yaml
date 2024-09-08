@@ -1,6 +1,6 @@
 nerf:
   epochs: 100000
-  device: 'cpu'
+  device: 'cuda'
   model_name: 'nerf'
   model_args:
     input_dim_position: 3

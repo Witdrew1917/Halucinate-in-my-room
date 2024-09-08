@@ -2,13 +2,14 @@ import torch
 
 def create_ray(pos: torch.Tensor, view: torch.Tensor, time_len=8,
                granularity=0.125):
-    time_scale = torch.arange(0,time_len,granularity).unsqueeze(-1)
+    time_scale = torch.arange(0,time_len,granularity, \
+            device=pos.device).unsqueeze(-1)
     pos = pos.unsqueeze(-2) + view.unsqueeze(-2) * time_scale
     view = view.unsqueeze(-2).expand(-1,len(time_scale),-1)
     return pos, view
 
 
-def volume_render(color_vec: torch.Tensor, density: torch.Tensor, 
+def volume_render(color_vec: torch.Tensor, density: torch.Tensor,
                   granularity=0.125):
     memoryless_transparency = granularity*density
     transparency = torch.exp(-torch.cumsum(memoryless_transparency, dim=-1))

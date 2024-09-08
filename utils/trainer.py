@@ -63,7 +63,6 @@ class Trainer:
         # implemented pytorch DataSet.
         # Also, assumes that input data is a tuple and labels are torch tensors
         loss_sum = 0
-        desc = iterator.desc
 
         for i, data in enumerate(self.data_loader):
             input_data, label = data
@@ -75,7 +74,7 @@ class Trainer:
             self.optimizer.step()
 
             loss_sum += loss.item()
-            iterator.set_description(f"Loss: {loss_sum / (i + 1)}")
+            iterator.set_description(f"Loss: {loss.item()}")
 
         if self.scheduler:
             self.scheduler.step()

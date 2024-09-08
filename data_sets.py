@@ -50,7 +50,7 @@ class SyntheticDataset(Dataset):
             for i in range(self.rays_per_image):
 
                 if self.random_rays:
-                    i = random.randint(0,len(data_point))
+                    i = random.randint(0,len(data_point)-1)
 
                 pos.append(torch.FloatTensor(data_point[i]["position"]))
                 view.append(torch.FloatTensor(data_point[i]["direction"]))
