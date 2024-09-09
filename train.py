@@ -13,6 +13,8 @@ def main():
                         help="path to recipe file")
     parser.add_argument('-sav','--save_path', type=str, required=True,
                         help="path to where to save resulting model")
+    parser.add_argument('-v', '--verbose', action="store_true", required=False,
+                        default=False, help="adds extra logging during epochs")
     args = parser.parse_args()
 
     with open(args.recipe, 'r') as file:
@@ -21,6 +23,7 @@ def main():
     model_name = [key for key in recipe.keys()][0]
 
     build_args = recipe[model_name]
+    build_args["verbose"] = args.verbose
     trainer = Trainer(build_args)
 
     trainer.run()

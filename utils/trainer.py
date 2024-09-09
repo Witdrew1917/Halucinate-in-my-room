@@ -1,4 +1,5 @@
 from importlib import import_module
+from time import perf_counter
 
 import torch
 import torch.optim
@@ -22,6 +23,7 @@ class Trainer:
 
     def __init__(self, build_args: dict) -> None:
 
+         self.verbose = build_args["verbose"]
          self.epochs = build_args["epochs"]
          self.build_args = build_args
          self.device = build_args["device"]
@@ -45,7 +47,8 @@ class Trainer:
     def _build_data_loader(self):
         data_set_name = self.build_args["data_set_name"]
         DataSet = getattr(import_module("data_sets"), data_set_name)
-        data_set = DataSet(self.device, **self.build_args["data_set_args"])
+        data_set = DataSet(self.device, self.verbose, \
+                **self.build_args["data_set_args"])
         collate_fn = DataSet.collate_fn
         return DataLoader(data_set, **self.build_args["data_loader_args"],
                           collate_fn=collate_fn)
@@ -63,9 +66,13 @@ class Trainer:
         # implemented pytorch DataSet.
         # Also, assumes that input data is a tuple and labels are torch tensors
         loss_sum = 0
+        t0 = perf_counter()
 
         for i, data in enumerate(self.data_loader):
+
+
             input_data, label = data
+            t1 = perf_counter()
             self.optimizer.zero_grad()
             output = self.model(input_data)
             loss = self.loss_fn(output, label)
@@ -76,8 +83,17 @@ class Trainer:
             loss_sum += loss.item()
             iterator.set_description(f"Loss: {loss.item()}")
 
+            if i==0:
+                break
+
         if self.scheduler:
             self.scheduler.step()
+
+        t2 = perf_counter()
+
+        if self.verbose:
+            print(f"_train_one_epoch executed one iteration after avg {(t2 - t0) / (i + 1)} seconds")
+            print(f"of this time {t1-t0} was spent loading the data")
 
         return loss_sum / (i + 1)
 

@@ -1,6 +1,6 @@
 nerf:
   epochs: 100000
-  device: 'cuda'
+  device: 'cpu'
   model_name: 'nerf'
   model_args:
     input_dim_position: 3
@@ -34,7 +34,7 @@ nerf:
     data_set_args:
       root_folder: './preprocessed_data'
       # This is set to be exactly the number of pixels in the target image.
-      rays_per_image: 640000        
+      rays_per_image: 640000 #640000        
       random_rays: False
     data_loader_args:
       batch_size: 1

@@ -2,6 +2,8 @@ import torch
 from torch import nn
 import torch.nn.functional as f
 
+from time import perf_counter
+
 if __name__ == '__main__':
     import sys
     import os
@@ -75,6 +77,7 @@ class Nerf(nn.Module):
                 torch.concatenate((logits[:,:,1:],emb_view), dim=-1))
 
         volume = volume_render(color, density.unsqueeze(-1))
+
         return volume
 
 

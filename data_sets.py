@@ -1,6 +1,7 @@
 import pickle
 import os
 import random
+from time import perf_counter
 
 import torch
 from torch.utils.data import Dataset
@@ -8,7 +9,7 @@ from torch.utils.data import Dataset
 
 class SyntheticDataset(Dataset):
 
-    def __init__(self, device: str, root_folder: str, rays_per_image=1, \
+    def __init__(self, device: str, verbose: bool, root_folder: str, rays_per_image=1, \
             random_rays=True) -> None:
         super().__init__()
 
@@ -27,6 +28,7 @@ class SyntheticDataset(Dataset):
 
         """
 
+        self.verbose = verbose
         self.root_folder = root_folder
         self.file_list = os.listdir(root_folder)
         self.rays_per_image = rays_per_image
