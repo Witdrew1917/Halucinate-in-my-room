@@ -47,8 +47,7 @@ class Trainer:
     def _build_data_loader(self):
         data_set_name = self.build_args["data_set_name"]
         DataSet = getattr(import_module("data_sets"), data_set_name)
-        data_set = DataSet(self.device, self.verbose, \
-                **self.build_args["data_set_args"])
+        data_set = DataSet(**self.build_args["data_set_args"])
         collate_fn = DataSet.collate_fn
         return DataLoader(data_set, **self.build_args["data_loader_args"],
                           collate_fn=collate_fn)
@@ -72,6 +71,11 @@ class Trainer:
 
 
             input_data, label = data
+            
+            input_data = [torch.FloatTensor(data).to(self.device) \
+                    for data in input_data]
+            label = torch.FloatTensor(label).to(self.device)
+
             t1 = perf_counter()
             self.optimizer.zero_grad()
             output = self.model(input_data)

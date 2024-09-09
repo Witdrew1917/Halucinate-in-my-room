@@ -2,8 +2,6 @@ import torch
 from torch import nn
 import torch.nn.functional as f
 
-from time import perf_counter
-
 if __name__ == '__main__':
     import sys
     import os
@@ -72,7 +70,7 @@ class Nerf(nn.Module):
 
         logits = self.block1(emb_pos)
         logits = self.block2(torch.concatenate((emb_pos, logits), dim=-1))
-        density = f.relu(logits[:,:,1])
+        density = f.relu(logits[:,:,0])
         color = self.rgb_decoder(
                 torch.concatenate((logits[:,:,1:],emb_view), dim=-1))
 

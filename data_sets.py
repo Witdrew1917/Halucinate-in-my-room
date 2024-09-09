@@ -1,15 +1,14 @@
 import pickle
 import os
 import random
-from time import perf_counter
+import numpy as np
 
-import torch
 from torch.utils.data import Dataset
 
 
 class SyntheticDataset(Dataset):
 
-    def __init__(self, device: str, verbose: bool, root_folder: str, rays_per_image=1, \
+    def __init__(self, root_folder: str, rays_per_image=1, \
             random_rays=True) -> None:
         super().__init__()
 
@@ -28,11 +27,9 @@ class SyntheticDataset(Dataset):
 
         """
 
-        self.verbose = verbose
         self.root_folder = root_folder
         self.file_list = os.listdir(root_folder)
         self.rays_per_image = rays_per_image
-        self.device = device
         self.random_rays = random_rays
 
 
@@ -54,14 +51,13 @@ class SyntheticDataset(Dataset):
                 if self.random_rays:
                     i = random.randint(0,len(data_point)-1)
 
-                pos.append(torch.FloatTensor(data_point[i]["position"]))
-                view.append(torch.FloatTensor(data_point[i]["direction"]))
-                tgt.append(torch.FloatTensor(data_point[i]["target"]))
+                pos.append(np.array(data_point[i]["position"]))
+                view.append(np.array(data_point[i]["direction"]))
+                tgt.append(np.array(data_point[i]["target"]))
 
-            pos = torch.stack(pos).to(self.device)
-            view = torch.stack(view).to(self.device)
-            tgt = torch.stack(tgt).to(self.device)
-
+            pos = np.stack(pos)
+            view = np.stack(view)
+            tgt = np.stack(tgt)
             return pos, view, tgt[:,:3]
 
     @staticmethod
@@ -74,7 +70,7 @@ class SyntheticDataset(Dataset):
             V.append(view)
             T.append(tgt)
             
-        return (torch.cat(P), torch.cat(V)), torch.cat(T)
+        return (np.concatenate(P), np.concatenate(V)), np.concatenate(T)
 
 
 if __name__ == '__main__':
@@ -83,14 +79,17 @@ if __name__ == '__main__':
     from time import time
 
     t0 = time()
-    data_set = SyntheticDataset("../preprocessed_data", "cpu", rays_per_image=4)
+    data_set = SyntheticDataset("./preprocessed_data", rays_per_image=4)
     test_loader = DataLoader(data_set, batch_size=1, 
                              collate_fn=SyntheticDataset.collate_fn)
 
     for data in test_loader:
-        pos, view, tgt = data
-
+        (pos, view), tgt = data
+        print(pos)
+        print(view)
+        print(tgt)
         break
+
     t1 = time()
     print(f"time: {t1-t0}s")
 
