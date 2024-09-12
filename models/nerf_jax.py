@@ -1,4 +1,3 @@
-import flax
 from flax import linen as nn
 from typing import Any, Callable, Sequence
 from jax import random, numpy as jnp
