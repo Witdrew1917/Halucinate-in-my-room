@@ -1,22 +1,18 @@
 nerf:
   epochs: 100000
   device: 'cpu'
-  jit: False
-  model_name: 'nerf'
+  jit: True
+  model_name: 'nerf_jax'
   model_args:
-    input_dim_position: 3
-    input_dim_view: 3
     hidden_dim: 256
     output_dim: 3
     embedding_size_position: 10
     embedding_size_view: 4
-  optimizer: 'SGD'
+  optimizer: 'sgd'
   optimizer_args:
-    lr: 0.0005
-  scheduler: 'ExponentialLR'
-  scheduler_args:
-    gamma: 0.99997
-  loss_function: 'MSELoss'
+    learning_rate: 0.0005
+    momentum: 0
+  loss_function: 'l2_loss'
   dropout: None
   data_set_name: 'SyntheticDataset'
   data_set_args:

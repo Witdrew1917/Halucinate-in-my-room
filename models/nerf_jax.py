@@ -1,10 +1,13 @@
+import random
+from math import pi
+
 from flax import linen as nn
-from typing import Any, Callable, Sequence
-from jax import random, numpy as jnp
+from jax import random as jrandom, numpy as jnp
+from jax import Array
+from jax.typing import ArrayLike
 
 
-
-class Nerf(nn.Module):
+class Nerf_Jax(nn.Module):
     hidden_dim: int
     output_dim: int
     embedding_size_position: int
@@ -14,6 +17,10 @@ class Nerf(nn.Module):
     def __call__(self, pos, view):
 
         # pos and view are formated according to embedding size etc...
+        pos, view = self._create_ray(pos, view)
+
+        pos = self._fourier_encoding(pos, self.embedding_size_position)
+        view = self._fourier_encoding(view, self.embedding_size_view)
 
         """
             block 1
@@ -41,7 +48,7 @@ class Nerf(nn.Module):
         logits= nn.relu(logits)
         logits= nn.Dense(self.hidden_dim+1)(logits)
 
-        density = nn.relu(logits[:,:,1])
+        density = nn.relu(logits[:,:,0])
 
 
         """
@@ -53,18 +60,52 @@ class Nerf(nn.Module):
         color = nn.Dense(self.output_dim)(color)
         color = nn.sigmoid(color)
 
-        return color, density
+        volume = self._volume_render(color, jnp.expand_dims(density,-1))
+
+        return volume
+
+
+    @staticmethod
+    def _fourier_encoding(x: Array, N:int) -> Array:
+        out = []
+        for i in range(N):
+            out.append(jnp.sin(2 ** i * pi * x))
+            out.append(jnp.cos(2 ** i * pi * x))
+
+        return jnp.concatenate(out, axis=-1)
+
+
+    @staticmethod
+    def _create_ray(pos: Array, view: Array, time_len=8, granularity=0.125):
+        time_scale = jnp.expand_dims(jnp.arange(0,time_len,granularity), 1)
+
+        pos = jnp.expand_dims(pos, -2) + jnp.expand_dims(view, -2) * time_scale
+        view = jnp.repeat(jnp.expand_dims(view, -2), len(time_scale), axis=1)
+        return pos, view
+
+
+    @staticmethod
+    def _volume_render(color_vec: ArrayLike, density: ArrayLike,\
+            granularity=0.125):
+        memoryless_transparency = granularity*density
+        transparency = jnp.exp(-jnp.cumsum(memoryless_transparency, axis=-1))
+        volume = jnp.sum(
+                transparency*(1 - jnp.exp(-memoryless_transparency))*color_vec,
+                axis=1)
+
+        return volume 
+                       
 
 if __name__ == '__main__':
-    key1, key2, key3 = random.split(random.key(0), 3)
-    pos = random.uniform(key1, (1,1,3))
-    view = random.uniform(key2, (1,1,3))
+    key1, key2, key3 = jrandom.split(jrandom.key(random.randint(0,1000)), 3)
+    pos = jrandom.uniform(key1, (1,3))
+    view = jrandom.uniform(key2, (1,3))
 
-    model = Nerf(
+    model = Nerf_Jax(
         hidden_dim=10,
         output_dim=3,
-        embedding_size_position=4,
-        embedding_size_view=10
+        embedding_size_position=10,
+        embedding_size_view=4
             )
 
     params = model.init(key3, pos, view)

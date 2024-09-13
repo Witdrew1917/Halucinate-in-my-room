@@ -4,7 +4,8 @@ import os
 from datetime import datetime 
 
 import torch
-from utils.trainer import Trainer
+import random
+from utils.trainer import Trainer, run
 
 
 def main():
@@ -26,7 +27,7 @@ def main():
     build_args["verbose"] = args.verbose
     trainer = Trainer(build_args)
 
-    trainer.run()
+    run(trainer, random.randint(0,1000))
 
     date = datetime.now().strftime("%Y-%m-%d_%H:%M")
     save_path = os.path.join(args.save_path,f"{model_name}_{date}.pt")

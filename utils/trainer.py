@@ -5,7 +5,7 @@ import torch
 import torch.optim
 import torch.optim.lr_scheduler
 import torch.nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, dataloader
 from tqdm import tqdm
 
 import jax
@@ -26,7 +26,7 @@ class Trainer:
         in the parent folder of this class definition.
     '''
 
-    def __inti__(self, build_args: dict) -> None:
+    def __init__(self, build_args: dict) -> None:
 
         self.jit = build_args["jit"]
         if build_args["jit"]:
@@ -68,7 +68,7 @@ class Trainer:
          self.optimizer = optimizer_fn(**build_args["optimizer_args"])
          self.data_loader = self._build_data_loader()
 
-         self.loss_fn = getattr(optax, build_args["loss_function"])()
+         self.loss_fn = getattr(optax.losses, build_args["loss_function"])
 
 
     def _build_data_loader(self):
@@ -91,19 +91,17 @@ class Trainer:
         # The data loader is assumed to handle device allocation from the
         # implemented pytorch DataSet.
         # Also, assumes that input data is a tuple and labels are torch tensors
-        loss_sum = 0
-        t0 = perf_counter()
+        loss_list = []
 
-        for i, data in enumerate(self.data_loader):
+        for _, data in enumerate(self.data_loader):
 
+            t0 = perf_counter()
 
             input_data, label = data
-            
             input_data = [torch.FloatTensor(data).to(self.device) \
                     for data in input_data]
             label = torch.FloatTensor(label).to(self.device)
 
-            t1 = perf_counter()
             self.optimizer.zero_grad()
             output = self.model(input_data)
             loss = self.loss_fn(output, label)
@@ -111,22 +109,15 @@ class Trainer:
 
             self.optimizer.step()
 
-            loss_sum += loss.item()
-            iterator.set_description(f"Loss: {loss.item()}")
-
-            if i==0:
-                break
+            loss_list.append(loss.item())
+            
+            t1 = perf_counter()
+            iterator.set_description(f"Loss: {loss.item()}, {t1-t0:.3f} sec")
 
         if self.scheduler:
             self.scheduler.step()
 
-        t2 = perf_counter()
-
-        if self.verbose:
-            print(f"_train_one_epoch executed one iteration after avg {(t2 - t0) / (i + 1)} seconds")
-            print(f"of this time {t1-t0} was spent loading the data")
-
-        return loss_sum / (i + 1)
+        return np.mean(loss_list).item()
 
 
     def save(self):
@@ -137,65 +128,57 @@ class Trainer:
 
 def run(trainer: Trainer, rng: int):
     iterator = tqdm(range(trainer.epochs), desc="Loss:")
-    if not trainer.jit():
+    if not trainer.jit:
         for _ in iterator:
             log = trainer._train_torch(iterator)
             print(f"Loss: {log}")
     else:
         model = trainer._build_model()
-        params = model.init(rng, jnp.ones([1,1,3]))['params']
+        rng, init_rng = jax.random.split(jax.random.key(rng))
+        params = model.init(init_rng, jnp.ones([1,3]), jnp.ones([1,3])\
+                )['params']
         state = train_state.TrainState.create(apply_fn=model.apply, \
                 params=params, tx=trainer.optimizer)
 
         for _ in iterator:
-            log = train_jax(iterator, trainer, state, rng)
+            log = train_jax(iterator, trainer, state)
             print(f"Loss: {log}")
 
         
 @jax.jit
-def apply_model(state, loss_fn, pos, view, labels):
-  """Computes gradients, loss and accuracy for a single batch."""
+def apply_model(state, pos, view, labels):
 
-  def aggregate(params):
-    logits = state.apply_fn({'params': params}, pos, view)
-    loss = jnp.mean(loss_fn(logits=logits, labels=labels))
-    return loss, logits
+    def aggregate(params):
+        logits = state.apply_fn({'params': params}, pos, view)
+        loss = jnp.mean(optax.losses.l2_loss(logits, labels))
+        return loss, logits
 
-  grad_fn = jax.value_and_grad(aggregate, has_aux=True)
-  (loss, logits), grads = grad_fn(state.params)
-  accuracy = jnp.mean(jnp.argmax(logits, -1) == labels)
-  return grads, loss, accuracy
+    grad_fn = jax.value_and_grad(aggregate, has_aux=True)
+    (loss, _), grads = grad_fn(state.params)
+    return grads, loss
 
 
 @jax.jit
 def update_model(state, grads):
-  return state.apply_gradients(grads=grads)
+    return state.apply_gradients(grads=grads)
 
 
-def train_jax(iterator, trainer, state, rng):
-  """Train for a single epoch."""
+def train_jax(iterator, trainer: Trainer, state):
   
-  ### TODO
-  train_ds_size = len(train_ds['image'])
-  steps_per_epoch = train_ds_size // batch_size
+    loss_list = []
+    for _, data in enumerate(trainer.data_loader):
 
-  perms = jax.random.permutation(rng, len(train_ds['image']))
-  perms = perms[: steps_per_epoch * batch_size]  # skip incomplete batch
-  perms = perms.reshape((steps_per_epoch, batch_size))
+        t0 = perf_counter()
 
-  epoch_loss = []
-  epoch_accuracy = []
+        (pos, view), labels = data
+        grads, loss = apply_model(state, pos, view, labels)
+        state = update_model(state, grads)
+        loss_list.append(loss)
+        t1 = perf_counter()
+        iterator.set_description(f"Loss: {loss}, {t1-t0:.3f} sec")
 
-  for perm in perms:
-    batch_images = train_ds['image'][perm, ...]
-    batch_labels = train_ds['label'][perm, ...]
-    grads, loss, accuracy = apply_model(state, batch_images, batch_labels)
-    state = update_model(state, grads)
-    epoch_loss.append(loss)
-    epoch_accuracy.append(accuracy)
-  train_loss = np.mean(epoch_loss)
-  train_accuracy = np.mean(epoch_accuracy)
-  return state, train_loss, train_accuracy
+    return np.mean(loss_list).item()
+
 
 
 
